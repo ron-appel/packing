@@ -1,0 +1,227 @@
+<html>
+<head>
+<script>
+
+function randInt( max, min ) {
+  if (!min) min = 0
+  const r = min + Math.floor(Math.random() * (max - min))
+  return r
+}
+
+var Tiles
+
+function generateRandomTiles( N, minAspectRatio, maxAspectRatio ) {
+  // aspect ratio = width/height
+  if (!minAspectRatio) minAspectRatio = 9/16
+  if (!maxAspectRatio) maxAspectRatio = 16/9
+
+  var AspectRatios = new Array(N),
+            Labels = new Array(N)
+
+  for (var i = 0; i < N; i++) {
+    var aspectRatio = -1, numerator, denominator
+    while (aspectRatio <= minAspectRatio || aspectRatio >= maxAspectRatio) {
+      numerator   = randInt(20 +1, 5)
+      denominator = randInt(20 +1, 5)
+      aspectRatio = numerator / denominator
+    }
+    AspectRatios[i] = aspectRatio
+
+    for (var k = numerator; k >= 2; k--) {
+      if (numerator % k == 0 && denominator % k == 0) { numerator /= k, denominator /= k } }
+    Labels[i] = `${i}<br>${numerator}:${denominator}`
+  }
+
+AspectRatios = [9/8, 2/3, 13/10, 13/15, 2/3, 17/13, 3/2, 1/1, 19/12, 3/2]
+function round( x, d ) { const precision = 10**d; return Math.round(x *precision)/precision }
+for (var i = 0; i < Labels.length; i++) Labels[i] = `${i}<br>${round(AspectRatios[i], 3)}`
+
+  function createTile( aspectRatio, label ) {
+    const tile = document.createElement("div")
+    tile.innerHTML = `<div class="label">${label}</div>`
+
+    tile.l = tile.r = tile.t = tile.b = 0
+    tile.aspectRatio = tile.area = tile.w = aspectRatio
+    tile.h = 1
+    function update() {
+      tile.r = tile.l + tile.w
+      tile.b = tile.t + tile.h
+      tile.area = tile.w * tile.h
+      
+      return tile
+    }
+
+    const style = tile.style
+    var color = '#'; for (var i = 0; i < 3; i++) color += randInt(8).toString(16)
+    style.backgroundColor = color
+
+    tile.moveTo = function( x, y ) {
+      style.left = tile.l = x
+      style.top  = tile.t = y
+      return update()
+    }
+    tile.moveBy = function( x, y ) { return tile.moveTo(tile.l + x, tile.t + y) }
+    tile.setWidth = function( w ) {
+      style.width  = tile.w = w
+      style.height = tile.h = w /aspectRatio
+      return update()
+    }
+    tile.setHeight = function( h ) {
+      style.width  = tile.w = h *aspectRatio
+      style.height = tile.h = h
+      return update()
+    }
+    tile.scale = function( s ) {
+      tile.moveTo(tile.l *s, tile.t *s)
+      return tile.setWidth(tile.w *s)
+    }
+
+    return tile
+  }
+
+  Tiles = new Array(AspectRatios.length)
+  for (var i = 0; i < Tiles.length; i++) {
+    const tile = Tiles[i] = createTile(AspectRatios[i], Labels[i])
+    document.body.appendChild(tile)
+  }
+}
+
+function centerTiles() {
+  var left = Infinity, right  = -Infinity,
+      top  = Infinity, bottom = -Infinity
+
+  for (var i = 0; i < Tiles.length; i++) {
+    var tile = Tiles[i]
+
+    if (left   > tile.l)   left = tile.l
+    if (right  < tile.r)  right = tile.r
+    if (top    > tile.t)    top = tile.t
+    if (bottom < tile.b) bottom = tile.b
+  }
+
+  const sw = document.body.offsetWidth  / (right - left),
+        sh = document.body.offsetHeight / (bottom - top)
+  const s = ((sw < sh)? sw : sh)
+  const dx = (document.body.offsetWidth  - (right + left) *s)/2,
+        dy = (document.body.offsetHeight - (bottom + top) *s)/2
+
+  for (var i = 0; i < Tiles.length; i++) { const tile = Tiles[i]
+                                           tile.scale(s); tile.moveBy(dx, dy) }
+}
+
+function setRectangularLayout( containerAspectRatio ) {
+  const t0 = Tiles[0]
+  t0.moveTo(0, 0)
+  t0.setWidth(100)
+
+  var box = { l: t0.l, t: t0.t, r: t0.w, b: t0.h,
+              w: function() { return this.r - this.l },
+              h: function() { return this.b - this.t } }
+
+  var isLeft = true, isTop = true
+
+  var i1 = 1
+  while (i1 < Tiles.length) {
+    const i0 = i1
+
+    var l = box.l, w = Tiles[i0].w, dw = 0,
+        t = box.t, h = Tiles[i0].h, dh = 0
+
+    if ((box.w() / box.h()) < containerAspectRatio) {
+    // place left/right
+
+      while (true) {
+        const aspectRatio = (box.w() + box.h() * w / (h + dh)) / box.h()
+console.log(i1, aspectRatio / containerAspectRatio)
+        if (aspectRatio < containerAspectRatio) break
+
+        h += dh
+        if ((i1 += 1) >= Tiles.length) {
+          console.log("break")
+          break
+        }
+        dh = w * Tiles[i1].h / Tiles[i1].w
+      }
+      w *= box.h() / h
+
+      if (isLeft = !isLeft) { l -= w, box.l -= w }
+      else               { l = box.r; box.r += w }
+
+      for (var j = i0; j < i1; j++) {
+        const tile = Tiles[j]
+        tile.setWidth(w)
+        tile.moveTo(l, t)
+        t += tile.h
+      }
+    }
+    else {
+    // place top/bottom
+
+      while (true) {
+        const aspectRatio = box.w() / (box.w() * h / (w + dw) + box.h())
+console.log(i1, aspectRatio / containerAspectRatio)
+        if (aspectRatio > containerAspectRatio) break
+
+        w += dw
+        if ((i1 += 1) >= Tiles.length) {
+          console.log("break")
+          break
+        }
+        dw = h * Tiles[i1].w / Tiles[i1].h
+      }
+      h *= box.w() / w
+
+      if (isTop = !isTop) { t -= h, box.t -= h }
+      else             { t = box.b; box.b += h }
+
+      for (var j = i0; j < i1; j++) {
+        const tile = Tiles[j]
+        tile.setHeight(h)
+        tile.moveTo(l, t)
+        l += tile.w
+      }
+    }
+  }
+}
+
+function setLayout() {
+  generateRandomTiles(10)
+
+  const aspectRatio = 1//document.body.offsetWidth / document.body.offsetHeight
+  setRectangularLayout(aspectRatio)
+  document.title = `Container Aspect Ratio: ${aspectRatio}`
+
+  centerTiles()
+
+  // const w = Tiles[0].w, h = Tiles[0].h, l = Tiles[0].l, t = Tiles[0].t
+  // const s = ((w > h)? w : h) -2
+  // document.body.innerHTML +=
+  //   `<div style="border: 1px solid black; width: ${s *aspectRatio}px; height: ${s}px; left: ${l}; top: ${t};"></div>`
+}
+
+</script>
+<style>
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+div {
+  position: absolute;
+  _border: 1px solid black;
+  
+  opacity: 0.5;
+}
+
+div.label {
+  margin: 5px;
+  color: white;
+  font-size: 10px;
+}
+
+</style>
+</head>
+<body onload="setLayout()">
+</body>
+</html>
