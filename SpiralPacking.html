@@ -1,0 +1,199 @@
+<html>
+<head>
+<script>
+
+function randInt( max, min ) {
+  if (!min) min = 0
+  const r = min + Math.floor(Math.random() * (max - min))
+  return r
+}
+
+var Tiles
+
+function generateRandomTiles( N, minAspectRatio, maxAspectRatio ) {
+  // aspect ratio = width/height
+  if (!minAspectRatio) minAspectRatio = 9/16
+  if (!maxAspectRatio) maxAspectRatio = 16/9
+  
+  const blockSize = 10
+  function createTile() {
+    const tile = document.createElement("div")
+
+    const aspectRatio = minAspectRatio + Math.random() * (maxAspectRatio - minAspectRatio)
+    tile.aspectRatio = aspectRatio
+
+    tile.l = tile.r = tile.t = tile.b = 0
+    tile.w = tile.h = tile.area = 0
+    function update() {
+      tile.r = tile.l + tile.w
+      tile.b = tile.t + tile.h
+      tile.area = tile.w * tile.h
+    }
+
+    const style = tile.style
+    var color = '#'; for (var i = 0; i < 3; i++) color += randInt(8).toString(16)
+    style.backgroundColor = color
+
+    tile.moveTo = function( x, y ) {
+      style.left = tile.l = x
+      style.top  = tile.t = y
+      update()
+      return tile
+    }
+    tile.moveBy = function( x, y ) { return tile.moveTo(tile.l + x, tile.t + y) }
+    tile.resize = function( size ) {
+      const sqrtAspectRatio = Math.sqrt(aspectRatio)
+      style.width  = tile.w = size *sqrtAspectRatio
+      style.height = tile.h = size /sqrtAspectRatio
+
+      // make dimensions snap to block size
+      function snapToBlock( x ) { return Math.ceil(x /blockSize) *blockSize }
+      style.width  = tile.w = snapToBlock(tile.w)
+      style.height = tile.h = snapToBlock(tile.h)
+      style.aspectRatio = tile.w / tile.h
+
+      update()
+      return tile
+    }
+
+    return tile
+  }
+
+  Tiles = new Array(N)
+  for (var i = 0; i < Tiles.length; i++) {
+    const tile = createTile()
+    document.body.appendChild(tile)
+
+    const size = randInt(60, 30)
+    tile.resize(size)
+    
+    Tiles[i] = tile
+  }
+  Tiles.sort(function( t1, t2 ) { const d = t2.w - t1.w; return (d != 0)? d : (t2.area - t1.area) })
+  for (var i = 0; i < Tiles.length; i++) Tiles[i].innerHTML = `<div class="number">${i +1}</div>`
+
+  return Tiles
+}
+
+function centerTiles( Tiles ) {
+  var left = Infinity, right  = -Infinity,
+      top  = Infinity, bottom = -Infinity
+
+  for (var i = 0; i < Tiles.length; i++) {
+    var tile = Tiles[i]
+
+    if (left   > tile.l)   left = tile.l
+    if (right  < tile.r)  right = tile.r
+    if (top    > tile.t)    top = tile.t
+    if (bottom < tile.b) bottom = tile.b
+  }
+  const dx = (document.body.offsetWidth  - (right + left))/2,
+        dy = (document.body.offsetHeight - (bottom + top))/2
+  for (var i = 0; i < Tiles.length; i++) Tiles[i].moveBy(dx, dy)
+}
+
+function setSpiralLayout() {
+  Tiles[0].moveTo(0, 0)
+  Tiles[1].moveTo(Tiles[0].w, Tiles[0].b - Tiles[1].h)
+
+  var pivot = Tiles[1], corner = "bottom-left"
+  for (var i = 2; i < Tiles.length; i++) {
+    const eps = 1e-12
+
+    const tile = Tiles[i]
+
+    function placeTile( min, max, side, v, edge ) {
+      var minSide, maxSide, m, isPlaced = false
+      if (side == 'l' || side == 'r') { minSide = 'b', maxSide = 't' }
+      else                            { minSide = 'r', maxSide = 'l' }
+      if (side == 'l' || side == 't') m = function( s ) { if (v > s -eps) { v = s, isPlaced = true } }
+      else                            m = function( s ) { if (v < s +eps) { v = s, isPlaced = true } }
+      // if (side == 'l' || side == 't') { v =  Infinity, m = function( s ) { if (v > s) { v = s, isPlaced = true } } }
+      // else                            { v = -Infinity, m = function( s ) { if (v < s) { v = s, isPlaced = true } } }
+
+      var isCorner = false
+      for (var j = 0; j < i -1; j++) {
+        const tj = Tiles[j]
+        const dmin = tj[minSide] - min,
+              dmax = max - tj[maxSide]
+        if (dmin > eps && dmax > eps) m(tj[side])
+        else if ((Math.abs(dmin) <= eps || Math.abs(dmax) <= eps) && Math.abs(tj[side] - edge) <= eps) isCorner = true
+      }
+
+      return isPlaced? v : (isCorner? "corner" : "skip")
+    }
+
+    switch (corner) {
+    case "top-left":
+      var position = placeTile(pivot.r, pivot.r + tile.w, 'b', pivot.t - tile.h, pivot.t) //-Infinity
+      if (position != "skip") {
+        if (position == "corner") position = pivot.b - tile.h
+        pivot = tile.moveTo(pivot.r, position)
+        break
+      }
+      corner = "bottom-left"
+
+    case "bottom-left":
+      var position = placeTile(pivot.t - tile.h, pivot.t, 'r', pivot.l - tile.w, pivot.l) //-Infinity
+      if (position != "skip") {
+        if (position == "corner") position = pivot.r - tile.w
+        pivot = tile.moveTo(position, pivot.t - tile.h)
+        break
+      }
+      corner = "bottom-right"
+
+    case "bottom-right":
+      var position = placeTile(pivot.l - tile.w, pivot.l, 't', pivot.b, pivot.b) //+Infinity
+      if (position != "skip") {
+        if (position == "corner") position = pivot.t
+        else position -= tile.h
+        pivot = tile.moveTo(pivot.l - tile.w, position)
+        break
+      }
+      corner = "top-right"
+
+    case "top-right":
+      var position = placeTile(pivot.b, pivot.b + tile.h, 'l', pivot.r, pivot.r) //+Infinity
+      if (position != "skip") {
+        if (position == "corner") position = pivot.l
+        else position -= tile.w
+        pivot = tile.moveTo(position, pivot.b)
+        break
+      }
+      corner = "top-left"
+
+      var position = placeTile(pivot.r, pivot.r + tile.w, 'b', pivot.t - tile.h, pivot.t)
+      if (position == "corner") position = pivot.b - tile.h
+      pivot = tile.moveTo(pivot.r, position)
+    }
+  }
+}
+
+function setLayout() {
+  Tiles = generateRandomTiles(100)
+
+  setSpiralLayout()
+
+  centerTiles(Tiles)
+}
+
+</script>
+<style>
+
+div {
+  position: absolute;
+  _border: 1px solid black;
+  
+  opacity: 0.5;
+}
+
+div.number {
+  margin: 5px;
+  color: white;
+}
+
+</style>
+</head>
+<body onload="setLayout()">
+</body>
+</html>
