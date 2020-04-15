@@ -2,55 +2,57 @@
 <head>
 <script>
 
-function randInt( max, min ) {
-  if (!min) min = 0
-  const r = min + Math.floor(Math.random() * (max - min))
-  return r
+function randInt( m, max ) {
+/*
+  randInt(max) // min = 0
+  randInt(min, max)
+  return random int in [min, max] (inclusive)
+*/
+  if (max == undefined) { max = m; m = 0 }
+  return m + Math.floor(Math.random() * (max +1 - m))
 }
 
-function hardshrink( x, y, eps ) {
+function hardshrink( x, eps ) {
   if (eps == undefined) eps = 1e-12
-  const d = x - y
-  return (Math.abs(d) <= eps)? 0 : d
+  return (Math.abs(x) <= eps)? 0 : x
 }
 
-var AspectRatios, Tiles
+function round( x, d ) {
+  if (d == undefined) d = 0
+  const precision = 10**d;
+  return Math.round(x *precision) /precision
+}
 
-function generateRandomTiles( N, minAspectRatio, maxAspectRatio ) {
-  // aspect ratio = width/height
-  if (!minAspectRatio) minAspectRatio = 9/16
-  if (!maxAspectRatio) maxAspectRatio = 16/9
+</script>
+<script>
 
-  AspectRatios = new Array(N)
-  var   Labels = new Array(N)
+var Tiles// = [11/16, 15/16, 15/16, 8/7, 7/5] // incorrectly calculated modified-ratio
 
-  for (var i = 0; i < N; i++) {
-    var aspectRatio = -1, numerator, denominator
-    while (aspectRatio <= minAspectRatio || aspectRatio >= maxAspectRatio) {
-      numerator   = randInt(20 +1, 5)
-      denominator = randInt(20 +1, 5)
-      aspectRatio = numerator / denominator
+// aspect-ratio = width/height
+const defaultMinRatio = 9/16,
+      defaultMaxRatio = 16/9
+function generateTiles( N, minRatio = defaultMinRatio, maxRatio = defaultMaxRatio ) {
+  if (Tiles == undefined) {
+    Tiles = new Array(N)
+    for (let i = 0; i < Tiles.length; i++) {
+      const aspectRatio = minRatio + (maxRatio - minRatio) *Math.random()
+      Tiles[i] = aspectRatio
     }
-    AspectRatios[i] = aspectRatio
-
-    for (var k = numerator; k >= 2; k--) {
-      if (numerator % k == 0 && denominator % k == 0) { numerator /= k, denominator /= k } }
-    Labels[i] = `${i}<br>${numerator}:${denominator}`
   }
 
-// AspectRatios = [9/8, 2/3, 13/10, 13/15, 2/3, 17/13, 3/2, 1/1, 19/12, 3/2]
-// AspectRatios = AspectRatios.splice(0, N)
-// function round( x, d ) { const precision = 10**d; return Math.round(x *precision)/precision }
-// for (var i = 0; i < Labels.length; i++) Labels[i] = `${i}<br>${round(AspectRatios[i], 3)}`
-
   function createTile( aspectRatio, label ) {
-    const tile = document.createElement("div")
-    document.body.appendChild(tile)
-    tile.innerHTML = `<div class="label">${label}</div>`
+    const div = document.createElement("div")
+    document.body.appendChild(div)
+    div.innerHTML = `<div class="label">${label}</div>`
 
-    tile.l = tile.r = tile.t = tile.b = 0
-    tile.aspectRatio = tile.area = tile.w = aspectRatio
-    tile.h = 1
+    const style = div.style
+    var color = '#'; for (let i = 0; i < 3; i++) color += randInt(8).toString(16)
+    style.backgroundColor = color
+
+    const tile = { div: div }
+    tile.l = tile.t = 0
+    tile.b = tile.h = 1
+    tile.aspectRatio = tile.area = tile.r = tile.w = aspectRatio
     function update() {
       tile.r = tile.l + tile.w
       tile.b = tile.t + tile.h
@@ -58,10 +60,6 @@ function generateRandomTiles( N, minAspectRatio, maxAspectRatio ) {
       
       return tile
     }
-
-    const style = tile.style
-    var color = '#'; for (var i = 0; i < 3; i++) color += randInt(8).toString(16)
-    style.backgroundColor = color
 
     tile.moveTo = function( x, y ) {
       style.left = tile.l = x
@@ -87,17 +85,31 @@ function generateRandomTiles( N, minAspectRatio, maxAspectRatio ) {
     return tile
   }
 
-  Tiles = new Array(AspectRatios.length)
-  for (var i = 0; i < Tiles.length; i++) Tiles[i] = createTile(AspectRatios[i], Labels[i])
+  var Aspects = '['
+  for (let i = 0; i < Tiles.length; i++) {
+    let aspectRatio = Tiles[i]
+    let m1, n1, d1 = Infinity
+    for (let m = 1; m <= 16; m++) {
+      for (let n = 1; n <= 16; n++) {
+        const d = Math.abs(m/n - aspectRatio)
+        if (d1 > d) { d1 = d, m1 = m, n1 = n }
+      }
+    }
+    const label = `${i}<br>${m1}:${n1}`
+    aspectRatio = m1/n1
+    Aspects += `${m1}/${n1}, `
+
+    Tiles[i] = createTile(aspectRatio, label)
+  }
+  console.log(Aspects.slice(0, -2) + ']' + "\n\n")
 }
 
 function centerTiles() {
   var left = Infinity, right  = -Infinity,
       top  = Infinity, bottom = -Infinity
 
-  for (var i = 0; i < Tiles.length; i++) {
-    var tile = Tiles[i]
-
+  for (let i = 0; i < Tiles.length; i++) {
+    const tile = Tiles[i]
     if (left   > tile.l)   left = tile.l
     if (right  < tile.r)  right = tile.r
     if (top    > tile.t)    top = tile.t
@@ -110,145 +122,124 @@ function centerTiles() {
   const dx = (document.body.offsetWidth  - (right + left) *s)/2,
         dy = (document.body.offsetHeight - (bottom + top) *s)/2
 
-  for (var i = 0; i < Tiles.length; i++) { const tile = Tiles[i]
+  for (let i = 0; i < Tiles.length; i++) { const tile = Tiles[i]
                                            tile.scale(s); tile.moveBy(dx, dy) }
+
+  const layoutRatio = (right - left) / (bottom - top)
+  return layoutRatio
 }
 
-var ron = false
-function setRectangularLayout( containerAspectRatio ) {
+var canModify = true
+function setRectangularLayout( containerRatio ) {
   const t0 = Tiles[0]
   t0.moveTo(0, 0)
-
-  var box = { l: t0.l, t: t0.t, r: t0.w, b: t0.h,
-              w: function() { return this.r - this.l },
-              h: function() { return this.b - this.t } }
-
-  var isLeft = !true, isTop = !true, isLeftRight = true
-
-  var i = 1, _i = 0
-const HS = hardshrink; hardshrink = function( x, y ) { console.log(i, x, x / y); return HS(x, y) }
-
-  while (i < Tiles.length) {
-    const i0 = i
-
-    var l = box.l, w = Tiles[i].w,
-        t = box.t, h = Tiles[i].h
-
-    var aspectRatio = box.w() / box.h()
-    const s = hardshrink(aspectRatio, containerAspectRatio)
-    if (s < 0 || s == 0 && (isLeftRight = !isLeftRight)) {
-    // place left/right
-console.log("lr")
-
-      aspectRatio = (box.w() + box.h() * w / h) / box.h()
-      if (hardshrink(aspectRatio, containerAspectRatio) <= 0) i += 1
-      else {
-        while (true) {
-          if ((i += 1) >= Tiles.length) {
-console.log("break lr", aspectRatio, _i)
-if (ron) break
-            const _tile = Tiles[_i]
-            var _w = _tile.w, _h = _tile.h
-            for (var j = _i +1; j < i; j++) _w += _h * Tiles[j].w / Tiles[j].h
-            _h *= box.w() / _w
-            const modifiedRatio = box.w() / (box.h() + _h - _tile.h)
-console.log(aspectRatio/containerAspectRatio, containerAspectRatio/modifiedRatio)
-            if (aspectRatio/containerAspectRatio > containerAspectRatio/modifiedRatio) break
-
-            l = _tile.l, t = _tile.t
-            for (var j = _i; j < i; j++) {
-              const tile = Tiles[j]
-              tile.setHeight(_h)
-              tile.moveTo(l, t)
-              l += tile.w
-            }
-            return
-          }
-
-          const dh = w * Tiles[i].h / Tiles[i].w
-          aspectRatio = (box.w() + box.h() * w / (h + dh)) / box.h()
-          if (hardshrink(aspectRatio, containerAspectRatio) < 0) break
-          h += dh
-        }
-      }
-      w *= box.h() / h
-
-      if (isLeft = !!isLeft) { l -= w, box.l -= w }
-      else               { l = box.r; box.r += w }
-
-      _i = i0
-      for (var j = _i; j < i; j++) {
-        const tile = Tiles[j]
-        tile.setWidth(w)
-        tile.moveTo(l, t)
-        t += tile.h
-      }
+  
+  var W = t0.w,
+      H = t0.h,
+      Batches = [{ i: 0, isAcross: null }]
+  
+  function placeTilesAcross( h, batch = 0 ) {
+    var l = 0
+    for (let j = Batches[batch].i; j < i; j++) {
+      const tile = Tiles[j]
+      tile.setHeight(h)
+      tile.moveTo(l, H)
+      l += tile.w
     }
-    else {
-    // place top/bottom
-console.log("tb")
+  }
+  function placeTilesDownward( w, batch = 0 ) {
+    var t = 0
+    for (let j = Batches[batch].i; j < i; j++) {
+      const tile = Tiles[j]
+      tile.setWidth(w)
+      tile.moveTo(W, t)
+      t += tile.h
+    }
+  }
 
-      aspectRatio = box.w() / (box.w() * h / w + box.h())
-      if (hardshrink(aspectRatio, containerAspectRatio) >= 0) i += 1
+  var i = 1, isAcross
+  while (i < Tiles.length) {
+    var w = Tiles[i].w,
+        h = Tiles[i].h,
+        aspectRatio = W / H
+
+    const s = hardshrink(aspectRatio - containerRatio)
+    isAcross = s > 0 || s == 0 && !isAcross
+    Batches.unshift({ i: i, isAcross: isAcross })
+
+    if (isAcross) { // place across
+      aspectRatio = W / (W * h / w + H)
+      if (hardshrink(aspectRatio - containerRatio) >= 0) i += 1
       else {
-        while (true) {
-          if ((i += 1) >= Tiles.length) {
-console.log("break tb", aspectRatio, _i)
-if (ron) break
-            const _tile = Tiles[_i]
-            var _w = _tile.w, _h = _tile.h
-            for (var j = _i +1; j < i; j++) _h += _w * Tiles[j].h / Tiles[j].w
-            _w *= box.h() / _h
-            const modifiedRatio = (box.w() + _w - _tile.w) / box.h()
-console.log(aspectRatio, modifiedRatio)
-            if (aspectRatio/containerAspectRatio > containerAspectRatio/modifiedRatio) break
-
-            l = _tile.l, t = _tile.t
-            for (var j = _i; j < i; j++) {
-              const tile = Tiles[j]
-              tile.setWidth(_w)
-              tile.moveTo(l, t)
-              t += tile.h
-            }
-            return
-          }
-
+        while ((i += 1) < Tiles.length) {
           const dw = h * Tiles[i].w / Tiles[i].h
-          aspectRatio = box.w() / (box.w() * h / (w + dw) + box.h())
-          if (hardshrink(aspectRatio, containerAspectRatio) > 0) break
+          aspectRatio = W / (W * h / (w + dw) + H)
+          if (hardshrink(aspectRatio - containerRatio) > 0) break
           w += dw
         }
       }
-      h *= box.w() / w
-
-      if (isTop = !!isTop) { t -= h, box.t -= h }
-      else             { t = box.b; box.b += h }
-
-      _i = i0
-      for (var j = _i; j < i; j++) {
-        const tile = Tiles[j]
-        tile.setHeight(h)
-        tile.moveTo(l, t)
-        l += tile.w
-      }
+      placeTilesAcross(h *= W / w)
+      H += h
     }
-    console.log('')
-  }
+    else { // place downward
+      aspectRatio = (W + H * w / h) / H
+      if (hardshrink(aspectRatio - containerRatio) <= 0) i += 1
+      else {
+        while ((i += 1) < Tiles.length) {
+          const dh = w * Tiles[i].h / Tiles[i].w
+          aspectRatio = (W + H * w / (h + dh)) / H
+          if (hardshrink(aspectRatio - containerRatio) < 0) break
+          h += dh
+        }
+      }
+      placeTilesDownward(w *= H / h)
+      W += w
+    }
 
-console.log("aspect", box.w() / box.h())
+    if (canModify && i >= Tiles.length) {
+      function isBetter( modifiedRatio, placeTiles ) {
+        const isModifiedBetter = Math.abs(modifiedRatio - containerRatio) <
+                                 Math.abs(  aspectRatio - containerRatio)
+        return isModifiedBetter
+      }
+
+      const i0 = Batches[0].i, i1 = Batches[1].i
+      let r = 0
+      if (Batches[1].isAcross) {
+        const _h = Tiles[i1].h
+        W = 0; for (let j = i1; j < i0; j++) W += Tiles[j].w
+        for (let j = i0; j < i; j++) r += Tiles[j].w / Tiles[j].h
+        h = _h * W / (r * _h + W)
+        const modifiedRatio = W / ((H -= _h) + h)
+        if (isBetter(modifiedRatio)) placeTilesAcross(h, 1)
+      }
+      else {
+        const _w = Tiles[i1].w
+        H = 0; for (let j = i1; j < i0; j++) H += Tiles[j].h
+        for (let j = i0; j < i; j++) r += Tiles[j].h / Tiles[j].w
+        w = _w * H / (r * _w + H)
+        const modifiedRatio = ((W -= _w) + w) / H
+        if (isBetter(modifiedRatio)) placeTilesDownward(w, 1)
+      }
+
+      break
+    }
+  }
 }
 
 function init() {
-  generateRandomTiles(10)
+  generateTiles(10)
   update()
 }
 
 function update() {
-  const aspectRatio = 2//document.body.offsetWidth / document.body.offsetHeight
-  setRectangularLayout(aspectRatio)
-  document.title = `Container Aspect Ratio: ${aspectRatio}`
+  const containerRatio = document.body.offsetWidth / document.body.offsetHeight
+  setRectangularLayout(containerRatio)
 
-  centerTiles()
+  const layoutRatio = centerTiles()
+  const ratioError = containerRatio / layoutRatio
+  document.title = `Ratio Error: ${round(ratioError, 3)}`
+console.log("container", containerRatio, "layout", layoutRatio, "error", ratioError)
 }
 
 </script>
