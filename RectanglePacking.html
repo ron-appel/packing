@@ -67,7 +67,7 @@ function generateTiles() {
       tile.r = tile.l + tile.w
       tile.b = tile.t + tile.h
       tile.area = tile.w * tile.h
-      
+
       return tile
     }
 
@@ -80,6 +80,7 @@ function generateTiles() {
     tile.setWidth = function( w ) {
       style.width  = tile.w = w
       style.height = tile.h = w /aspectRatio
+
       return update()
     }
     tile.setHeight = function( h ) {
@@ -126,11 +127,11 @@ function centerTiles() {
     if (bottom < tile.b) bottom = tile.b
   }
 
-  const sw = document.body.offsetWidth  / (right - left),
-        sh = document.body.offsetHeight / (bottom - top)
+  const sw = window.innerWidth  / (right - left),
+        sh = window.innerHeight / (bottom - top)
   const s = ((sw < sh)? sw : sh)
-  const dx = (document.body.offsetWidth  - (right + left) *s)/2,
-        dy = (document.body.offsetHeight - (bottom + top) *s)/2
+  const dx = (window.innerWidth  - (right + left) *s)/2,
+        dy = (window.innerHeight - (bottom + top) *s)/2
 
   for (let i = 0; i < Tiles.length; i++) { const tile = Tiles[i]
                                            tile.scale(s); tile.moveBy(dx, dy) }
@@ -287,7 +288,7 @@ function init() {
 }
 
 function update() {
-  const containerRatio = document.body.offsetWidth / document.body.offsetHeight
+  const containerRatio = window.innerWidth / window.innerHeight
   setRectangularLayout(containerRatio)
 
   const layoutRatio = centerTiles()
