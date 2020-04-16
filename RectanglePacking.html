@@ -26,13 +26,23 @@ function round( x, d ) {
 </script>
 <script>
 
-var Tiles// = [11/16, 15/16, 15/16, 8/7, 7/5] // incorrectly calculated modified-ratio
+const settings = {
+  N: "100",
+  // aspect-ratio = width/height
+  minRatio: "9/16",
+  maxRatio: "16/9",
 
-// aspect-ratio = width/height
-const defaultMinRatio = 9/16,
-      defaultMaxRatio = 16/9
-function generateTiles( N, minRatio = defaultMinRatio, maxRatio = defaultMaxRatio ) {
+  get: function( key ) { return eval(this[key]) }
+}
+
+var Tiles
+
+function generateTiles() {
   if (Tiles == undefined) {
+    const N = settings.get('N'),
+          minRatio = settings.get("minRatio"),
+          maxRatio = settings.get("maxRatio")
+
     Tiles = new Array(N)
     for (let i = 0; i < Tiles.length; i++) {
       const aspectRatio = minRatio + (maxRatio - minRatio) *Math.random()
@@ -228,7 +238,16 @@ function setRectangularLayout( containerRatio ) {
 }
 
 function init() {
-  generateTiles(10)
+  for (let k in settings) {
+    const input = document.getElementById(k)
+    if (input) input.value = settings[k]
+  }
+
+  const obj = document.getElementById("settings")
+  while (obj.nextSibling) obj.nextSibling.remove()
+  Tiles = undefined
+
+  generateTiles()
   update()
 }
 
@@ -242,22 +261,64 @@ function update() {
 console.log("container", containerRatio, "layout", layoutRatio, "error", ratioError)
 }
 
+function key( event ) {
+  if (event.key == "Enter") {
+    for (let k in settings) {
+      const input = document.getElementById(k)
+      if (input) settings[k] = input.value
+    }
+    event.target.blur()
+
+    init()
+  }
+}
+
 </script>
 <style>
 
 body {
   margin: 0;
   padding: 0;
+
+  overflow: hidden;
 }
 
 div {
   position: absolute;
-  _border: 1px solid black;
-  
   opacity: 0.5;
 }
 
-div.label {
+#settings {
+  border: 1px solid black;
+  background-color: white;
+
+  left: 0;
+  top: 0;
+  z-index: 1;
+  width: 12px;
+  height: 18px;
+  overflow: hidden;
+
+  padding: 2px;
+}
+#settings span {
+  font-size: 18px;
+}
+
+#settings:hover {
+  opacity: 0.9;
+
+  width: auto;
+  height: auto;
+
+  padding: 12px;
+}
+#settings:hover span {
+  display: none;
+}
+
+
+.label {
   margin: 5px;
   color: white;
   font-size: 10px;
@@ -266,5 +327,14 @@ div.label {
 </style>
 </head>
 <body onload="init()" onresize="update()" onclick="update()">
+<div id="settings" onkeypress="key(event)">
+<span>?&nbsp;</span>
+Resize window or click to update layout.
+<br><br>
+number of rectangles: <input type="text" id="N" size="4">
+<br>
+min-ratio: <input type="text" id="minRatio" size="6">
+max-ratio: <input type="text" id="maxRatio" size="6">
+</div>
 </body>
 </html>
