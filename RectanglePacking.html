@@ -1,6 +1,7 @@
 <html>
 <head>
 <script>
+"use strict"
 
 function randInt( m, max ) {
 /*
@@ -23,6 +24,8 @@ function round( x, d ) {
   return Math.round(x *precision) /precision
 }
 
+function onenter( f ) { if (window.event.key == "Enter") f() }
+
 </script>
 <script>
 
@@ -32,16 +35,16 @@ const settings = {
   minRatio: "9/16",
   maxRatio: "16/9",
 
-  get: function( key ) { return eval(this[key]) }
+  get: function( key ) { return Function(`return ${this[key]}`)() }
 }
 
 var Tiles
 
 function generateTiles() {
   if (Tiles == undefined) {
-    const N = settings.get('N'),
-          minRatio = settings.get("minRatio"),
-          maxRatio = settings.get("maxRatio")
+    const  N = settings.get('N'),
+    minRatio = settings.get("minRatio"),
+    maxRatio = settings.get("maxRatio")
 
     Tiles = new Array(N)
     for (let i = 0; i < Tiles.length; i++) {
@@ -175,7 +178,7 @@ function wrapAround( Batches ) {
 }
 
 var canModify = true
-function setRectangularLayout( containerRatio ) {
+function setRectangularLayout( frameRatio ) {
   const t0 = Tiles[0]
   t0.moveTo(0, 0)
   
@@ -184,23 +187,9 @@ function setRectangularLayout( containerRatio ) {
       Batches = [{ i: 0, isAcross: null, w: 0, h: 0 }]
   
   function placeTilesAcross( h ) {
-    var x = 0
-    for (let j = Batches[0].i; j < i; j++) {
-      const tile = Tiles[j]
-      tile.setHeight(h)
-      tile.moveTo(x, H)
-      x += tile.w
-    }
-  }
+    for (let j = Batches[0].i; j < i; j++) Tiles[j].setHeight(h) }
   function placeTilesDownward( w ) {
-    var y = 0
-    for (let j = Batches[0].i; j < i; j++) {
-      const tile = Tiles[j]
-      tile.setWidth(w)
-      tile.moveTo(W, y)
-      y += tile.h
-    }
-  }
+    for (let j = Batches[0].i; j < i; j++) Tiles[j].setWidth(w) }
 
   var i = 1, isAcross, throttle = 0
   while (i < Tiles.length) {
@@ -211,18 +200,18 @@ function setRectangularLayout( containerRatio ) {
         h = Tiles[i].h,
         aspectRatio = W / H
 
-    const s = hardshrink(aspectRatio - containerRatio)
+    const s = hardshrink(aspectRatio - frameRatio)
     isAcross = s > 0 || s == 0 && !isAcross
     Batches.unshift({ i: i, isAcross: isAcross, w: W, h: H })
 
     if (isAcross) { // place across
       aspectRatio = W / (W * h / w + H)
-      if (hardshrink(aspectRatio - containerRatio) >= 0) i += 1
+      if (hardshrink(aspectRatio - frameRatio) >= 0) i += 1
       else {
         while ((i += 1) < Tiles.length && i < throttle) {
           const dw = h * Tiles[i].w / Tiles[i].h
           aspectRatio = W / (W * h / (w + dw) + H)
-          if (hardshrink(aspectRatio - containerRatio) > 0) break
+          if (hardshrink(aspectRatio - frameRatio) > 0) break
           w += dw
         }
       }
@@ -231,12 +220,12 @@ function setRectangularLayout( containerRatio ) {
     }
     else { // place downward
       aspectRatio = (W + H * w / h) / H
-      if (hardshrink(aspectRatio - containerRatio) <= 0) i += 1
+      if (hardshrink(aspectRatio - frameRatio) <= 0) i += 1
       else {
         while ((i += 1) < Tiles.length && i < throttle) {
           const dh = w * Tiles[i].h / Tiles[i].w
           aspectRatio = (W + H * w / (h + dh)) / H
-          if (hardshrink(aspectRatio - containerRatio) < 0) break
+          if (hardshrink(aspectRatio - frameRatio) < 0) break
           h += dh
         }
       }
@@ -246,23 +235,22 @@ function setRectangularLayout( containerRatio ) {
 
     if (i >= Tiles.length && canModify) {
       function isBetter( modifiedRatio ) {
-        const isModifiedBetter = Math.abs(modifiedRatio - containerRatio) <
-                                 Math.abs(  aspectRatio - containerRatio)
+        const isModifiedBetter = Math.abs(modifiedRatio - frameRatio) <
+                                 Math.abs(  aspectRatio - frameRatio)
         if (isModifiedBetter) Batches.shift()
         return isModifiedBetter
       }
 
       const batch = Batches[1]
-      W = batch.w, H = batch.h
       let r = 0
       if (batch.isAcross) {
         for (let j = batch.i; j < i; j++) r += Tiles[j].w / Tiles[j].h
-        const modifiedRatio = W / (H + (h = W / r))
+        const modifiedRatio = batch.w / (batch.h + (h = batch.w / r))
         if (isBetter(modifiedRatio)) placeTilesAcross(h)
       }
       else {
         for (let j = batch.i; j < i; j++) r += Tiles[j].h / Tiles[j].w
-        const modifiedRatio = (W + (w = H / r)) / H
+        const modifiedRatio = (batch.w + (w = batch.h / r)) / batch.h
         if (isBetter(modifiedRatio)) placeTilesDownward(w)
       }
 
@@ -273,7 +261,7 @@ function setRectangularLayout( containerRatio ) {
   wrapAround(Batches)
 }
 
-function init() {
+function refresh() {
   for (let k in settings) {
     const input = document.getElementById(k)
     if (input) input.value = settings[k]
@@ -288,25 +276,23 @@ function init() {
 }
 
 function update() {
-  const containerRatio = window.innerWidth / window.innerHeight
-  setRectangularLayout(containerRatio)
+  const frameRatio = window.innerWidth / window.innerHeight
+  setRectangularLayout(frameRatio)
 
   const layoutRatio = centerTiles()
-  const ratioError = Math.abs(containerRatio / layoutRatio -1)
+  const ratioError = Math.abs(frameRatio / layoutRatio -1)
   document.title = `Ratio Error: ${round(ratioError, 3)}`
-console.log("container", containerRatio, "layout", layoutRatio, "error", ratioError)
+console.log("frame", frameRatio, "layout", layoutRatio, "error", ratioError)
 }
 
-function key( event ) {
-  if (event.key == "Enter") {
-    for (let k in settings) {
-      const input = document.getElementById(k)
-      if (input) settings[k] = input.value
-    }
-    event.target.blur()
-
-    init()
+function setParams() {
+  for (let k in settings) {
+    const input = document.getElementById(k)
+    if (input && RegExp(`^${input.pattern}\$`).test(input.value)) settings[k] = input.value
   }
+  event.target.blur()
+
+  refresh()
 }
 
 </script>
@@ -362,17 +348,17 @@ div {
 
 </style>
 </head>
-<body onload="init()" onresize="update()" onclick="update()" onkeypress="key(event)">
-<div id="settings">
+<body onload="setTimeout(refresh, 1)" onresize="update()" onclick="update()" onkeypress="onenter(refresh)">
+<div id="settings" onkeypress="onenter(setParams)">
 <span>?&nbsp;</span>
 Resize window or click to update layout.
 <br><br>
-number of rectangles: <input type="text" id="N" size="4">
+number of rectangles: <input type="text" id="N" size="4" pattern="[0-9]+" title="Integer">
 &nbsp;
-<button onclick="init()">regenerate</button>
+<button onclick="refresh()">regenerate</button>
 <br>
-min-ratio: <input type="text" id="minRatio" size="6">
-max-ratio: <input type="text" id="maxRatio" size="6">
+min-ratio: <input type="text" id="minRatio" size="6" pattern="[0-9/.]+" title="Number or Fraction">
+max-ratio: <input type="text" id="maxRatio" size="6" pattern="[0-9/.]+" title="Number or Fraction">
 </div>
 </body>
 </html>
