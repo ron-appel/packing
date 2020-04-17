@@ -28,6 +28,7 @@ function onenter( f ) { if (window.event.key == "Enter") f() }
 
 </script>
 <script>
+"use strict"
 
 const settings = {
   N: "100",
@@ -39,7 +40,6 @@ const settings = {
 }
 
 var Tiles
-
 function generateTiles() {
   if (Tiles == undefined) {
     const  N = settings.get('N'),
@@ -116,6 +116,8 @@ function generateTiles() {
     Tiles[i] = createTile(aspectRatio, label)
   }
   console.log(Aspects.slice(0, -2) + ']' + "\n\n")
+
+  return Tiles
 }
 
 function centerTiles() {
@@ -143,34 +145,43 @@ function centerTiles() {
   return layoutRatio
 }
 
-function wrapAround( Batches ) {
-  var i = 1, isLeft = true, isTop = true,
-      l = 0, t = 0, r = Tiles[0].w, b = Tiles[0].h
+function placeTiles( Batches ) {
+  const t0 = Tiles[0]
+  t0.moveTo(0, 0)
 
-  for (let k = Batches.length -2; k >= 0; k--) {
+  var i = 1, isLeft = true, isTop = true,
+      l = 0, t = 0, r = t0.w, b = t0.h
+
+  for (let k = 2; k <= Batches.length; k++) {
     if (i >= Tiles.length) break
 
-    let x, y
-    const i1 = (k < 1)? Tiles.length : Batches[k -1].i
-    if (Batches[k].isAcross) {
+    let w = 0, h = 0, x, y
+    const i1 = (k < Batches.length)? Batches[k].i : Tiles.length
+    if (Batches[k -1].isAcross) {
+      for (let j = i; j < i1; j++) w += Tiles[j].w / Tiles[j].h
+      h = (r - l) / w
       x = l
-      if (isTop = !isTop) y = (t -= Tiles[i].h)
-      else             { y = b; b += Tiles[i].h }
+      if (isTop = !isTop&&0) y = (t -= h)
+      else             { y = b; b += h }
  
       while (i < i1) {
         const tile = Tiles[i++]
         tile.moveTo(x, y)
+        tile.setHeight(h)
         x += tile.w
       }
     }
     else {
+      for (let j = i; j < i1; j++) h += Tiles[j].h / Tiles[j].w
+      w = (b - t) / h
       y = t
-      if (isLeft = !isLeft) x = (l -= Tiles[i].w)
-      else               { x = r; r += Tiles[i].w }
+      if (isLeft = !isLeft&&0) x = (l -= w)
+      else               { x = r; r += w }
  
       while (i < i1) {
         const tile = Tiles[i++]
         tile.moveTo(x, y)
+        tile.setWidth(w)
         y += tile.h
       }
     }
@@ -179,19 +190,11 @@ function wrapAround( Batches ) {
 
 var canModify = true
 function setRectangularLayout( frameRatio ) {
-  const t0 = Tiles[0]
-  t0.moveTo(0, 0)
-  
-  var W = t0.w,
-      H = t0.h,
+  var W = Tiles[0].w,
+      H = Tiles[0].h,
       Batches = [{ i: 0, isAcross: null, w: 0, h: 0 }]
   
-  function placeTilesAcross( h ) {
-    for (let j = Batches[0].i; j < i; j++) Tiles[j].setHeight(h) }
-  function placeTilesDownward( w ) {
-    for (let j = Batches[0].i; j < i; j++) Tiles[j].setWidth(w) }
-
-  var i = 1, isAcross, throttle = 0
+  var i = 1, isAcross, throttle = 1
   while (i < Tiles.length) {
     // throttle placements
     throttle = throttle *1.25 +1
@@ -202,63 +205,60 @@ function setRectangularLayout( frameRatio ) {
 
     const s = hardshrink(aspectRatio - frameRatio)
     isAcross = s > 0 || s == 0 && !isAcross
-    Batches.unshift({ i: i, isAcross: isAcross, w: W, h: H })
+    Batches.push({ i: i, isAcross: isAcross, w: W, h: H })
 
     if (isAcross) { // place across
-      aspectRatio = W / (W * h / w + H)
-      if (hardshrink(aspectRatio - frameRatio) >= 0) i += 1
+      aspectRatio = H / W + h / w //= 1/(W / (W * h / w + H))
+      if (hardshrink(aspectRatio - 1/frameRatio) <= 0) i += 1
       else {
         while ((i += 1) < Tiles.length && i < throttle) {
           const dw = h * Tiles[i].w / Tiles[i].h
-          aspectRatio = W / (W * h / (w + dw) + H)
-          if (hardshrink(aspectRatio - frameRatio) > 0) break
+          aspectRatio = H / W + h / (w + dw) //= 1/(W / (W * h / (w + dw) + H))
+          if (hardshrink(aspectRatio - 1/frameRatio) < 0) break
           w += dw
         }
       }
-      placeTilesAcross(h *= W / w)
-      H += h
+      H += h * W / w
     }
     else { // place downward
-      aspectRatio = (W + H * w / h) / H
+      aspectRatio = W / H + w / h //= (W + H * w / h) / H
       if (hardshrink(aspectRatio - frameRatio) <= 0) i += 1
       else {
         while ((i += 1) < Tiles.length && i < throttle) {
           const dh = w * Tiles[i].h / Tiles[i].w
-          aspectRatio = (W + H * w / (h + dh)) / H
+          aspectRatio = W / H + w / (h + dh) //= (W + H * w / (h + dh)) / H
           if (hardshrink(aspectRatio - frameRatio) < 0) break
           h += dh
         }
       }
-      placeTilesDownward(w *= H / h)
-      W += w
+      W += w * H / h
     }
 
     if (i >= Tiles.length && canModify) {
-      function isBetter( modifiedRatio ) {
-        const isModifiedBetter = Math.abs(modifiedRatio - frameRatio) <
-                                 Math.abs(  aspectRatio - frameRatio)
-        if (isModifiedBetter) Batches.shift()
-        return isModifiedBetter
-      }
-
-      const batch = Batches[1]
-      let r = 0
-      if (batch.isAcross) {
-        for (let j = batch.i; j < i; j++) r += Tiles[j].w / Tiles[j].h
-        const modifiedRatio = batch.w / (batch.h + (h = batch.w / r))
-        if (isBetter(modifiedRatio)) placeTilesAcross(h)
-      }
-      else {
-        for (let j = batch.i; j < i; j++) r += Tiles[j].h / Tiles[j].w
-        const modifiedRatio = (batch.w + (w = batch.h / r)) / batch.h
-        if (isBetter(modifiedRatio)) placeTilesDownward(w)
+      aspectRatio = W / H
+      while (Batches.length > 1) {
+        const batch = Batches[Batches.length -2]
+        let modifiedRatio
+        if (batch.isAcross) {
+          let r = 0; for (let j = batch.i; j < Tiles.length; j++) r += Tiles[j].w / Tiles[j].h
+          modifiedRatio = batch.w / (batch.h + batch.w / r)
+        }
+        else {
+          let r = 0; for (let j = batch.i; j < Tiles.length; j++) r += Tiles[j].h / Tiles[j].w
+          modifiedRatio = (batch.w + batch.h / r) / batch.h
+        }
+        const isModifiedWorse = Math.abs(  aspectRatio - frameRatio) <
+                                Math.abs(modifiedRatio - frameRatio)
+        if (isModifiedWorse) break
+        Batches.pop()
+        aspectRatio = modifiedRatio
       }
 
       break
     }
   }
 
-  wrapAround(Batches)
+  placeTiles(Batches)
 }
 
 function refresh() {
@@ -348,7 +348,7 @@ div {
 
 </style>
 </head>
-<body onload="setTimeout(refresh, 1)" onresize="update()" onclick="update()" onkeypress="onenter(refresh)">
+<body onload="refresh()" onresize="update()" onclick="update()" onkeypress="onenter(refresh)">
 <div id="settings" onkeypress="onenter(setParams)">
 <span>?&nbsp;</span>
 Resize window or click to update layout.
