@@ -30,30 +30,30 @@ function onenter( f ) { if (window.event.key == "Enter") f() }
 <script>
 "use strict"
 
-const settings = {
+const params = {
   N: "100",
   // aspect-ratio = width/height
-  minRatio: "9/16",
-  maxRatio: "16/9",
+  min_ratio: "9/16",
+  max_ratio: "16/9",
 
-  get: function( key ) { return Function(`return ${this[key]}`)() }
+  get: function( param ) { return Function(`return ${this[param]}`)() }
 }
 
 var Tiles
-function generateTiles() {
+function generate_tiles() {
   if (Tiles == undefined) {
-    const  N = settings.get('N'),
-    minRatio = settings.get("minRatio"),
-    maxRatio = settings.get("maxRatio")
+    const  N = params.get('N'),
+    min_ratio = params.get("min_ratio"),
+    max_ratio = params.get("max_ratio")
 
     Tiles = new Array(N)
     for (let i = 0; i < Tiles.length; i++) {
-      const aspectRatio = minRatio + (maxRatio - minRatio) *Math.random()
-      Tiles[i] = aspectRatio
+      const aspect_ratio = min_ratio + (max_ratio - min_ratio) *Math.random()
+      Tiles[i] = aspect_ratio
     }
   }
 
-  function createTile( aspectRatio, label ) {
+  function create_tile( aspect_ratio, label ) {
     const div = document.createElement("div")
     document.body.appendChild(div)
     div.innerHTML = `<div class="label">${label}</div>`
@@ -65,7 +65,7 @@ function generateTiles() {
     const tile = { div: div }
     tile.l = tile.t = 0
     tile.b = tile.h = 1
-    tile.aspectRatio = tile.area = tile.r = tile.w = aspectRatio
+    tile.aspect_ratio = tile.area = tile.r = tile.w = aspect_ratio
     function update() {
       tile.r = tile.l + tile.w
       tile.b = tile.t + tile.h
@@ -74,26 +74,26 @@ function generateTiles() {
       return tile
     }
 
-    tile.moveTo = function( x, y ) {
+    tile.move_to = function( x, y ) {
       style.left = tile.l = x
       style.top  = tile.t = y
       return update()
     }
-    tile.moveBy = function( x, y ) { return tile.moveTo(tile.l + x, tile.t + y) }
-    tile.setWidth = function( w ) {
+    tile.move_by = function( x, y ) { return tile.move_to(tile.l + x, tile.t + y) }
+    tile.set_width = function( w ) {
       style.width  = tile.w = w
-      style.height = tile.h = w /aspectRatio
+      style.height = tile.h = w /aspect_ratio
 
       return update()
     }
-    tile.setHeight = function( h ) {
-      style.width  = tile.w = h *aspectRatio
+    tile.set_height = function( h ) {
+      style.width  = tile.w = h *aspect_ratio
       style.height = tile.h = h
       return update()
     }
     tile.scale = function( s ) {
-      tile.moveTo(tile.l *s, tile.t *s)
-      return tile.setWidth(tile.w *s)
+      tile.move_to(tile.l *s, tile.t *s)
+      return tile.set_width(tile.w *s)
     }
 
     return tile
@@ -101,26 +101,26 @@ function generateTiles() {
 
   var Aspects = '['
   for (let i = 0; i < Tiles.length; i++) {
-    let aspectRatio = Tiles[i]
+    let aspect_ratio = Tiles[i]
     let m1, n1, d1 = Infinity
     for (let m = 1; m <= 16; m++) {
       for (let n = 1; n <= 16; n++) {
-        const d = Math.abs(m/n - aspectRatio)
+        const d = Math.abs(m/n - aspect_ratio)
         if (d1 > d) { d1 = d, m1 = m, n1 = n }
       }
     }
     const label = `${i +1}<br>${m1}:${n1}`
-    aspectRatio = m1/n1
+    aspect_ratio = m1/n1
     Aspects += `${m1}/${n1}, `
 
-    Tiles[i] = createTile(aspectRatio, label)
+    Tiles[i] = create_tile(aspect_ratio, label)
   }
   console.log(Aspects.slice(0, -2) + ']' + "\n\n")
 
   return Tiles
 }
 
-function centerTiles() {
+function center_tiles() {
   var left = Infinity, right  = -Infinity,
       top  = Infinity, bottom = -Infinity
 
@@ -139,15 +139,15 @@ function centerTiles() {
         dy = (window.innerHeight - (bottom + top) *s)/2
 
   for (let i = 0; i < Tiles.length; i++) { const tile = Tiles[i]
-                                           tile.scale(s); tile.moveBy(dx, dy) }
+                                           tile.scale(s); tile.move_by(dx, dy) }
 
-  const layoutRatio = (right - left) / (bottom - top)
-  return layoutRatio
+  const layout_ratio = (right - left) / (bottom - top)
+  return layout_ratio
 }
 
-function placeTiles( Batches ) {
+function place_tiles( Batches ) {
   const t0 = Tiles[0]
-  t0.moveTo(0, 0)
+  t0.move_to(0, 0)
 
   var i = 1, isLeft = true, isTop = true,
       l = 0, t = 0, r = t0.w, b = t0.h
@@ -157,17 +157,17 @@ function placeTiles( Batches ) {
 
     let w = 0, h = 0, x, y
     const i1 = (k < Batches.length)? Batches[k].i : Tiles.length
-    if (Batches[k -1].isAcross) {
+    if (Batches[k -1].across) {
       for (let j = i; j < i1; j++) w += Tiles[j].w / Tiles[j].h
       h = (r - l) / w
       x = l
-      if (isTop = !isTop&&0) y = (t -= h)
+      if (isTop = !isTop) y = (t -= h)
       else             { y = b; b += h }
  
       while (i < i1) {
         const tile = Tiles[i++]
-        tile.moveTo(x, y)
-        tile.setHeight(h)
+        tile.move_to(x, y)
+        tile.set_height(h)
         x += tile.w
       }
     }
@@ -175,120 +175,120 @@ function placeTiles( Batches ) {
       for (let j = i; j < i1; j++) h += Tiles[j].h / Tiles[j].w
       w = (b - t) / h
       y = t
-      if (isLeft = !isLeft&&0) x = (l -= w)
+      if (isLeft = !isLeft) x = (l -= w)
       else               { x = r; r += w }
  
       while (i < i1) {
         const tile = Tiles[i++]
-        tile.moveTo(x, y)
-        tile.setWidth(w)
+        tile.move_to(x, y)
+        tile.set_width(w)
         y += tile.h
       }
     }
   }
 }
 
-var canModify = true
-function setRectangularLayout( frameRatio ) {
+var can_modify = true
+function set_rectangular_layout( frame_ratio ) {
   var W = Tiles[0].w,
       H = Tiles[0].h,
-      Batches = [{ i: 0, isAcross: null, w: 0, h: 0 }]
+      Batches = [{ i: 0, across: null, w: 0, h: 0 }]
   
-  var i = 1, isAcross, throttle = 1
+  var i = 1, is_across, throttle = 1
   while (i < Tiles.length) {
     // throttle placements
     throttle = throttle *1.25 +1
 
     var w = Tiles[i].w,
         h = Tiles[i].h,
-        aspectRatio = W / H
+        aspect_ratio = W / H
 
-    const s = hardshrink(aspectRatio - frameRatio)
-    isAcross = s > 0 || s == 0 && !isAcross
-    Batches.push({ i: i, isAcross: isAcross, w: W, h: H })
+    const s = hardshrink(aspect_ratio - frame_ratio)
+    is_across = s > 0 || s == 0 && !is_across
+    Batches.push({ i: i, across: is_across, w: W, h: H })
 
-    if (isAcross) { // place across
-      aspectRatio = H / W + h / w //= 1/(W / (W * h / w + H))
-      if (hardshrink(aspectRatio - 1/frameRatio) <= 0) i += 1
+    if (is_across) { // place across
+      aspect_ratio = H / W + h / w //= 1/(W / (W * h / w + H))
+      if (hardshrink(aspect_ratio - 1/frame_ratio) <= 0) i += 1
       else {
         while ((i += 1) < Tiles.length && i < throttle) {
           const dw = h * Tiles[i].w / Tiles[i].h
-          aspectRatio = H / W + h / (w + dw) //= 1/(W / (W * h / (w + dw) + H))
-          if (hardshrink(aspectRatio - 1/frameRatio) < 0) break
+          aspect_ratio = H / W + h / (w + dw) //= 1/(W / (W * h / (w + dw) + H))
+          if (hardshrink(aspect_ratio - 1/frame_ratio) < 0) break
           w += dw
         }
       }
       H += h * W / w
     }
     else { // place downward
-      aspectRatio = W / H + w / h //= (W + H * w / h) / H
-      if (hardshrink(aspectRatio - frameRatio) <= 0) i += 1
+      aspect_ratio = W / H + w / h //= (W + H * w / h) / H
+      if (hardshrink(aspect_ratio - frame_ratio) <= 0) i += 1
       else {
         while ((i += 1) < Tiles.length && i < throttle) {
           const dh = w * Tiles[i].h / Tiles[i].w
-          aspectRatio = W / H + w / (h + dh) //= (W + H * w / (h + dh)) / H
-          if (hardshrink(aspectRatio - frameRatio) < 0) break
+          aspect_ratio = W / H + w / (h + dh) //= (W + H * w / (h + dh)) / H
+          if (hardshrink(aspect_ratio - frame_ratio) < 0) break
           h += dh
         }
       }
       W += w * H / h
     }
 
-    if (i >= Tiles.length && canModify) {
-      aspectRatio = W / H
+    if (i >= Tiles.length && can_modify) {
+      aspect_ratio = W / H
       while (Batches.length > 1) {
         const batch = Batches[Batches.length -2]
-        let modifiedRatio
-        if (batch.isAcross) {
+        let modified_ratio
+        if (batch.across) {
           let r = 0; for (let j = batch.i; j < Tiles.length; j++) r += Tiles[j].w / Tiles[j].h
-          modifiedRatio = batch.w / (batch.h + batch.w / r)
+          modified_ratio = batch.w / (batch.h + batch.w / r)
         }
         else {
           let r = 0; for (let j = batch.i; j < Tiles.length; j++) r += Tiles[j].h / Tiles[j].w
-          modifiedRatio = (batch.w + batch.h / r) / batch.h
+          modified_ratio = (batch.w + batch.h / r) / batch.h
         }
-        const isModifiedWorse = Math.abs(  aspectRatio - frameRatio) <
-                                Math.abs(modifiedRatio - frameRatio)
-        if (isModifiedWorse) break
+        const is_modified_worse = Math.abs(  aspect_ratio - frame_ratio) <
+                                  Math.abs(modified_ratio - frame_ratio)
+        if (is_modified_worse) break
         Batches.pop()
-        aspectRatio = modifiedRatio
+        aspect_ratio = modified_ratio
       }
 
       break
     }
   }
 
-  placeTiles(Batches)
+  place_tiles(Batches)
 }
 
 function refresh() {
-  for (let k in settings) {
-    const input = document.getElementById(k)
-    if (input) input.value = settings[k]
+  for (let param in params) {
+    const input = document.getElementById(param)
+    if (input) input.value = params[param]
   }
 
   const obj = document.getElementById("settings")
   while (obj.nextSibling) obj.nextSibling.remove()
   Tiles = undefined
 
-  generateTiles()
+  generate_tiles()
   update()
 }
 
 function update() {
-  const frameRatio = window.innerWidth / window.innerHeight
-  setRectangularLayout(frameRatio)
+  const frame_ratio = window.innerWidth / window.innerHeight
+  set_rectangular_layout(frame_ratio)
 
-  const layoutRatio = centerTiles()
-  const ratioError = Math.abs(frameRatio / layoutRatio -1)
-  document.title = `Ratio Error: ${round(ratioError, 3)}`
-console.log("frame", frameRatio, "layout", layoutRatio, "error", ratioError)
+  const layout_ratio = center_tiles()
+  const ratio_error = Math.abs(frame_ratio / layout_ratio -1)
+  document.title = `Ratio Error: ${round(ratio_error, 3)}`
+console.log("frame", frame_ratio, "layout", layout_ratio, "error", ratio_error)
 }
 
-function setParams() {
-  for (let k in settings) {
-    const input = document.getElementById(k)
-    if (input && RegExp(`^${input.pattern}\$`).test(input.value)) settings[k] = input.value
+function set_params() {
+  for (let param in params) {
+    const input = document.getElementById(param)
+    if (input && RegExp(input.pattern).test(input.value)) params[param] = input.value
   }
   event.target.blur()
 
@@ -349,16 +349,16 @@ div {
 </style>
 </head>
 <body onload="refresh()" onresize="update()" onclick="update()" onkeypress="onenter(refresh)">
-<div id="settings" onkeypress="onenter(setParams)">
-<span>?&nbsp;</span>
+<div id="settings" onkeypress="onenter(set_params)">
+<span>? &nbsp;</span>
 Resize window or click to update layout.
 <br><br>
-number of rectangles: <input type="text" id="N" size="4" pattern="[0-9]+" title="Integer">
+number of rectangles: <input type="text" id="N" size="4" pattern="^[0-9]+$" title="Integer">
 &nbsp;
 <button onclick="refresh()">regenerate</button>
 <br>
-min-ratio: <input type="text" id="minRatio" size="6" pattern="[0-9/.]+" title="Number or Fraction">
-max-ratio: <input type="text" id="maxRatio" size="6" pattern="[0-9/.]+" title="Number or Fraction">
+min-ratio: <input type="text" id="min_ratio" size="6" pattern="^[0-9/.]+$" title="Number or Fraction">
+max-ratio: <input type="text" id="max_ratio" size="6" pattern="^[0-9/.]+$" title="Number or Fraction">
 </div>
 </body>
 </html>
