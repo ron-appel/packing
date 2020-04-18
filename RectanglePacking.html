@@ -3,10 +3,10 @@
 <script>
 "use strict"
 
-function randInt( m, max ) {
+function rand_int( m, max ) {
 /*
-  randInt(max) // min = 0
-  randInt(min, max)
+  rand_int(max) // min = 0
+  rand_int(min, max)
   return random int in [min, max) [inclusive, exclusive)
 */
 
@@ -30,43 +30,51 @@ function onenter( f ) { if (window.event.key == "Enter") f() }
 <script>
 
 function anneal_layout( frame_ratio ) {
+  console.log("Annealing")
   // const Batches = rectangular_layout(frame_ratio)
   const Batches = [{ i: 0, across: true }]
 
   const N = Tiles.length
   function compute_cost() {
     const layout_size = place_tiles(Batches)
-    const layout_area  = layout_size.w * layout_size.h,
-          layout_ratio = layout_size.w / layout_size.h
+    const layout_ratio = layout_size.w / layout_size.h
 
-    const R = 3
-    const r = 1 - 1/ R
-    const area_unit = layout_area / (N - (N-1)/2 * r)
-    
-    let area_error = 0, min = Infinity
-    for (let n = 0; n < N; n++) {
-      const area = Tiles[n].area, expected_area = (1 - n/N * r) * area_unit
-      area_error += Math.abs(area / expected_area - 1)
-      if (min > area) min = area
-    }
-    area_error /= N
-    if (min < area_unit /R /4) area_error = Infinity
+    // const R = 3
+    // const r = 1 - 1/ R
+    // const area_unit = (layout_size.w * layout_size.h) / (N - (N-1)/2 * r)
+    // 
+    // let area_error = 0, min = Infinity
+    // for (let n = 0; n < N; n++) {
+    //   const area = Tiles[n].area, expected_area = (1 - n/N * r) * area_unit
+    //   area_error += Math.abs(area / expected_area - 1)
+    //   if (min > area) min = area
+    // }
+    // area_error /= N
+    // if (min < area_unit /R /4) area_error = Infinity
 
-    const aspect_error = Math.abs(frame_ratio / layout_ratio - 1) *10
+    let mu = 0, s2 = 0
+    for (let n = 0; n < N; n++) { const a = Tiles[n].area *(n +4); mu += a, s2 += a*a }
+    mu /= N
+    const stdev = Math.sqrt(relu(s2 /N - mu*mu))
+    const area_error = stdev /mu
 
-    const cost = area_error + aspect_error
-console.log(cost, '\t', area_error, aspect_error)
+    const aspect_error = Math.abs(frame_ratio / layout_ratio - 1)
+
+    const cost = area_error + aspect_error *4
+// console.log(cost, '\t', area_error, aspect_error)
     return cost
   }
 
+  const random_direction = () => true //Boolean(rand_int(2))
+
   var undo
   function add() {
-    const index = randInt(1, Batches.length +1)
+    const index = rand_int(1, Batches.length +1)
     const i0 = Batches[index -1].i +1,
           i1 = (index < Batches.length)? Batches[index].i : Tiles.length
     if (i0 >= i1) return false
   
-    const batch = { i: randInt(i0, i1), across: true|| Boolean(randInt(2)) }
+    const batch = { i: rand_int(i0, i1), across: random_direction() }
     Batches.splice(index, 0, batch)
     undo = function() { Batches.splice(index, 1) }
     return true
@@ -74,7 +82,7 @@ console.log(cost, '\t', area_error, aspect_error)
   function remove() {
     if (Batches.length <= 1) return false
 
-    const index = randInt(1, Batches.length)
+    const index = rand_int(1, Batches.length)
     const batch = Batches.splice(index, 1)[0]
     undo = function() { Batches.splice(index, 0, batch) }
     return true
@@ -82,30 +90,52 @@ console.log(cost, '\t', area_error, aspect_error)
   function modify() {
     if (Batches.length <= 1) return false
 
-    const index = randInt(1, Batches.length)
+    const index = rand_int(1, Batches.length)
     const batch = Batches[index]
     const original = { i: batch.i, across: batch.across }
     const i0 = Batches[index -1].i +1,
           i1 = (index +1 < Batches.length)? Batches[index +1].i : Tiles.length
-    batch.i = randInt(i0, i1), batch.across = true|| Boolean(randInt(2))
+    batch.i = rand_int(i0, i1), batch.across = random_direction()
     undo = function() { Batches[index] = original }
     return true
   }
   const Mutations = [add, remove, modify]
 
-  function get_proposal( iter, epoch ) {
+  function clone_batches( Batches ) {
+    const Clone = new Array(Batches.length)
+    for (let i = 0; i < Batches.length; i++) {
+      const batch = Batches[i]
+      Clone[i] = { i: batch.i, across: batch.across }
+    }
+    return Clone
+  }
+
+  var cost_best = Infinity, Batches_best, cost
+  function get_proposal() {
     while (true) {
-      const random_mutation = Mutations[randInt(Mutations.length)]
+      const random_mutation = Mutations[rand_int(Mutations.length)]
       const is_valid = random_mutation()
       if (is_valid) break
     }
-    return compute_cost()
+    return cost = compute_cost()
   }
-  function set_proposal( is_accepted ) { if (!is_accepted) undo();  }
+  function set_proposal( is_accepted ) {
+    if (is_accepted) {
+      if (cost_best > cost) { cost_best = cost
+                              Batches_best = clone_batches(Batches) }
+    }
+    else undo()
+  }
 
   anneal(get_proposal, set_proposal, 100, 20)
 
-  return Batches
+  // accordion first row
+  if (Batches_best.length > 1) {
+    const i1 = Batches_best[1].i
+    for (let i = 1; i < i1; i++) Batches_best.splice(i, 0, { i: i, across: false })
+  }
+
+  return Batches_best
 }
 
 </script>
@@ -117,7 +147,7 @@ const Params = {
   min_ratio: "9/16",
   max_ratio: "16/9",
   N: "100",
-  method: "deterministic",
+  method: "annealing",
 
   get: function( param ) { return Function(`return ${this[param]}`)() }
 }
@@ -142,7 +172,7 @@ function generate_tiles() {
     div.innerHTML = `<div class="label">${label}</div>`
 
     const style = div.style
-    var color = '#'; for (let i = 0; i < 3; i++) color += randInt(8).toString(16)
+    var color = '#'; for (let i = 0; i < 3; i++) color += rand_int(8).toString(16)
     style.backgroundColor = color
 
     const tile = { div: div }
@@ -438,14 +468,14 @@ div {
 
 </style>
 </head>
-<body onload="refresh()" onresize="update()" onkeypress="onenter(refresh)">
-<div id="settings" onkeypress="onenter(set_params)">
+<body onload="refresh()" onresize="update()" onclick="update()" onkeypress="onenter(refresh)">
+<div id="settings" onclick="event.stopPropagation()" onkeypress="onenter(set_params)">
 <span class="icon">? &nbsp;</span>
-Resize window or press Enter to update layout.
+Resize or click on frame update layout.
+<br>
+Press [Enter] to regenerate array.
 <br><br>
 number of rectangles: <input type="text" name="N" size="4" pattern="^[0-9]{1,3}$" title="Integer < 1000">
-&nbsp;
-<button onclick="set_params()">regenerate</button>
 <br>
 min-ratio: <input type="text" name="min_ratio" size="6" pattern="^[0-9/.]+$" title="Number or Fraction">
 max-ratio: <input type="text" name="max_ratio" size="6" pattern="^[0-9/.]+$" title="Number or Fraction">
