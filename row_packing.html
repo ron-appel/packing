@@ -1,0 +1,180 @@
+<html>
+<head>
+<script src="../js-utils/math.js"></script>
+<script src="../js-utils/optim/simulated_annealing.js"></script>
+<script src="row_packing.js"></script>
+<script>
+"use strict"
+
+const Params = {
+  // aspect-ratio = width/height
+  min_aspect: "9/16",
+  max_aspect: "16/9",
+  N: "100",
+
+  // min ratio of largest to smallest tile areas
+  min_ratio:  "0.1",
+}
+
+function keypress( event ) {
+  event.stopPropagation()
+  if (event.key == 'Enter') refresh()
+  return false
+}
+
+function display( Tiles ) {
+  // clear tiles
+  const obj = document.getElementById('settings')
+  while (obj.nextSibling) obj.nextSibling.remove()
+
+  var aspects = '['
+
+  Tiles.forEach(function( tile, i ) {
+    const div = document.createElement('div'),
+    label_div = document.createElement('div')
+    document.body.appendChild(div)
+    div.appendChild(label_div)
+
+    const fraction = number_to_fraction(tile.aspect_ratio)
+    const m = fraction[0], n = fraction[1]
+    const label = (i +1) + '<br>' + m + ':' + n
+    label_div.innerHTML = label
+
+    const style = div.style
+    var color = '#'; for (let i = 0; i < 3; i++) color += rand_int(8).toString(16)
+    style.backgroundColor = color
+    
+    style.left   = tile.l
+    style.top    = tile.t
+    style.width  = tile.w
+    style.height = tile.h
+
+    aspects += m + '/' + n + ', '
+  })
+
+  aspects = aspects.slice(0, -2) + ']'
+console.log(aspects)
+}
+
+// update layout
+function update_layout() {
+  const frame_width  = window.innerWidth,
+        frame_height = window.innerHeight
+
+  document.title = 'Annealing...'
+  const layout_ratio = set_layout(Tiles, frame_width, frame_height)
+
+  display(Tiles)
+
+  const frame_ratio = frame_width / frame_height
+  const aspect_error = Math.abs(frame_ratio / layout_ratio -1)
+  document.title = 'Aspect Error: ' + round(aspect_error, 3)
+console.log('frame', frame_ratio, 'layout', layout_ratio, 'error', aspect_error)
+}
+
+var Tiles
+function refresh() {
+  const Inputs = document.getElementsByTagName('input')
+  for (let i = 0; i < Inputs.length; i++) {
+    const input = Inputs[i]
+    const param = input.name
+    if (input.type == 'radio') input.checked = Params[param] == input.value
+    else if (input.type != 'file') input.value = Params[param]
+  }
+
+  // generate random aspects
+  function get_param( param ) { return (new Function('return ' + Params[param]))() }
+  const min_aspect = get_param('min_aspect')
+  const aspect_range = get_param('max_aspect') - min_aspect
+  function generate_aspect() {
+    const rand = min_aspect + aspect_range *Math.random()
+    const fraction = number_to_fraction(rand)
+    return fraction[0] / fraction[1]
+  }
+  const Aspect_Ratios = new Array(get_param('N'))
+  for (let i = 0; i < Aspect_Ratios.length; i++) { Aspect_Ratios[i] = generate_aspect() }
+
+  Tiles = generate_tiles(Aspect_Ratios)
+  update_layout(Tiles)
+}
+
+function settings( event ) {
+  const Inputs = document.getElementsByTagName("input")
+  for (let i = 0; i < Inputs.length; i++) {
+    const input = Inputs[i]
+    const param = input.name, value = input.value
+    if (input.type == "radio") { if (input.checked) Params[param] = value }
+    else {   if (RegExp(input.pattern).test(value)) Params[param] = value }
+  }
+  event.target.blur()
+}
+
+</script>
+<style>
+
+body {
+  margin: 0;
+  padding: 0;
+
+  overflow: hidden;
+}
+
+div {
+  position: absolute;
+  opacity: 0.5;
+
+  overflow: hidden;
+}
+
+div > div {
+  margin: 5px;
+  color: white;
+  font-size: 10px;
+}
+
+#settings {
+  outline: 1px solid black;
+  background-color: white;
+
+  font-size: 24px;
+  left: 0.2em; width: 1em;
+  top: 0.2em; height: 1em;
+  padding: 0.2em;
+  z-index: 1;
+  line-height: 1em;
+  vertical-align: middle;
+}
+#settings > input { font-size: inherit; height: 1em; }
+#settings:hover {
+  width: auto;
+  height: auto;
+  padding: 0.5em;
+
+  opacity: 0.9;
+}
+#settings > .icon { font-size: 1.6em; }
+#settings:hover > .icon { display: none; }
+
+</style>
+</head>
+<body onload="refresh()" onresize="update_layout()" ondblclick="update_layout()" onkeypress="keypress(event)">
+<div id="settings" onchange="settings(event)">
+  <span class="icon">&equivDD;</span>
+    Resize or double-click to update layout.
+    <br>
+    Press [Enter] to regenerate array.
+    <br><br>
+<!--
+    input: <input type="text" name="array" size="30">
+    <br>
+-->
+    number of rectangles: <input type="text" name="N" size="4" pattern="^[1-9][0-9]{1,2}$" title="0 < Integer < 1000">
+    <br>
+    min-aspect: <input type="text" name="min_aspect" size="5" pattern="^[0-9/.]+$" title="Number or Fraction">
+    max-aspect: <input type="text" name="max_aspect" size="5" pattern="^[0-9/.]+$" title="Number or Fraction">
+    <br>
+    min-ratio of smallest to largest areas: <input type="text" name="min_ratio" size="4" pattern="^[0-9/.]+$" title="Number or Fraction">
+  </span>
+</div>
+</body>
+</html>

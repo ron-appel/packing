@@ -3,30 +3,11 @@
 <script>
 "use strict"
 
-function rand_int( m, max ) {
-/*
-  rand_int(max) // min = 0
-  rand_int(min, max)
-  return random int in [min, max) [inclusive, exclusive)
-*/
-
-  if (max == undefined) { max = m; m = 0 }
-  return m + Math.floor(Math.random() * (max - m))
-}
-
-function round( x, d = 0 ) {
-  const precision = 10**d;
-  return Math.round(x *precision) /precision
-}
-
-const relu = x => Math.max(0, x)
-
-const hardshrink = ( x, eps = 1e-12 ) => ((Math.abs(x) <= eps)? 0 : x)
-
 function onenter( f ) { if (window.event.key == "Enter") f() }
 
 </script>
-<script src="../js-utils/simulated_annealing.js"></script>
+<script src="../js-utils/math.js"></script>
+<script src="../js-utils/optim/simulated_annealing.js"></script>
 <script>
 
 function anneal_layout( frame_ratio ) {
@@ -65,7 +46,7 @@ function anneal_layout( frame_ratio ) {
     return cost
   }
 
-  const random_direction = () => true //Boolean(rand_int(2))
+  const random_direction = function() { return true }//Boolean(rand_int(2))
 
   var undo
   function add() {
@@ -377,7 +358,7 @@ function refresh() {
     const input = Inputs[i]
     const param = input.name
     if (input.type == "radio") input.checked = Params[param] == input.value
-    else                       input.value   = Params[param]
+    else if (input.type != "file") input.value = Params[param]
   }
 
   const obj = document.getElementById("settings")
@@ -414,6 +395,11 @@ function set_params() {
   refresh()
 }
 
+
+
+function download() {
+}
+
 </script>
 <style>
 
@@ -435,8 +421,8 @@ div {
   border: 1px solid black;
   background-color: white;
 
-  left: 0;
-  top: 0;
+  left: 4px;
+  top: 4px;
   z-index: 1;
   width: 12px;
   height: 18px;
@@ -475,17 +461,21 @@ Resize or click on frame update layout.
 <br>
 Press [Enter] to regenerate array.
 <br><br>
-number of rectangles: <input type="text" name="N" size="4" pattern="^[0-9]{1,3}$" title="Integer < 1000">
+input: <input type="text" name="array" size="30">
+<br>
+Number of rectangles: <input type="text" name="N" size="4" pattern="^[0-9]{1,3}$" title="Integer < 1000">
 <br>
 min-ratio: <input type="text" name="min_ratio" size="6" pattern="^[0-9/.]+$" title="Number or Fraction">
 max-ratio: <input type="text" name="max_ratio" size="6" pattern="^[0-9/.]+$" title="Number or Fraction">
 <br>
-method:
+Method:
 <span onclick="set_params()">
 <input type="radio" name="method" value="deterministic">
 <label for="anneal">deterministic</label>
 <input type="radio" name="method" value="annealing">
 <label for="anneal">annealing</label>
+<br>
+<button onclick="download()">Download result</button>
 </span>
 </div>
 </body>
