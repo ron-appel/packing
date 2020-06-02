@@ -120,62 +120,55 @@ body {
   overflow: hidden;
 }
 
-div {
+div:not(#settings) {
   position: absolute;
-  opacity: 0.5;
+  opacity: 0.5 !important;
 
   overflow: hidden;
 }
 
-div > div {
+div:not(#settings) > div {
   margin: 5px;
   color: white;
   font-size: 10px;
 }
 
 #settings {
+  font-size: 20px;
+  position: relative;
+  display: inline-block;
+  width: 1.2em;
+  height: 1.2em;
+  margin: 5px;
+  z-index: 1;
+  overflow: hidden;
+
   outline: 1px solid black;
   background-color: white;
-
-  font-size: 24px;
-  left: 0.2em; width: 1em;
-  top: 0.2em; height: 1em;
-  padding: 0.2em;
-  z-index: 1;
-  line-height: 1em;
-  vertical-align: middle;
-}
-#settings > input { font-size: inherit; height: 1em; }
-#settings:hover {
-  width: auto;
-  height: auto;
-  padding: 0.5em;
-
   opacity: 0.9;
 }
-#settings > .icon { font-size: 1.6em; }
-#settings:hover > .icon { display: none; }
+#settings > input { font-size: 1em; height: 1.5em; }
+#settings:not(:hover)::before { font-size: 2em; line-height: 0.6em; content: '\02A78'; }
+#settings:hover { width: auto; height: auto; padding: 5px; }
 
 </style>
 </head>
 <body onload="refresh()" onresize="update_layout()" ondblclick="update_layout()" onkeypress="keypress(event)">
 <div id="settings" onchange="settings(event)">
-  <span class="icon">&equivDD;</span>
-    Resize or double-click to update layout.
-    <br>
-    Press [Enter] to regenerate array.
-    <br><br>
+  Resize or double-click to update layout.
+  <br>
+  Press [Enter] to regenerate array.
+  <br><br>
 <!--
-    input: <input type="text" name="array" size="30">
-    <br>
+  input: <input type="text" name="array" size="30">
+  <br>
 -->
-    number of rectangles: <input type="text" name="N" size="4" pattern="^[1-9][0-9]{1,2}$" title="0 < Integer < 1000">
-    <br>
-    min-aspect: <input type="text" name="min_aspect" size="5" pattern="^[0-9/.]+$" title="Number or Fraction">
-    max-aspect: <input type="text" name="max_aspect" size="5" pattern="^[0-9/.]+$" title="Number or Fraction">
-    <br>
-    min-ratio of smallest to largest sizes: <input type="text" name="min_ratio" size="4" pattern="^[0-9/.]+$" title="Number or Fraction">
-  </span>
+  number of rectangles: <input type="text" name="N" size="4" pattern="^[1-9][0-9]{1,2}$" title="0 < Integer < 1000">
+  <br>
+  min-aspect: <input type="text" name="min_aspect" size="5" pattern="^[0-9/.]+$" title="Number or Fraction">
+  max-aspect: <input type="text" name="max_aspect" size="5" pattern="^[0-9/.]+$" title="Number or Fraction">
+  <br>
+  min-ratio of smallest to largest sizes: <input type="text" name="min_ratio" size="4" pattern="^[0-9/.]+$" title="Number or Fraction">
 </div>
 </body>
 </html>
