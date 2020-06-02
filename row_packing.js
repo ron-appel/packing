@@ -23,7 +23,8 @@ function Tile( aspect_ratio ) {
   }
   this.move_by = function( x, y ) { return this.move_to(this.l + x, this.t + y) }
 
-  function update_area() { this.area = this.w * this.h; return this }
+  const tile = this
+  function update_area() { tile.area = tile.w * tile.h; return tile }
   this.set_width = function( w ) {
     this.w = w
     this.h = w /aspect_ratio
@@ -140,26 +141,27 @@ function anneal_layout( Tiles, frame_ratio ) {
   function compute_cost( epoch_progress ) {
     const layout_ratio = place_tiles(Tiles, Row_Counts)
 
-    var size_error = 0, tile_index = 0, max_size, min_size
-    max_size = min_size = Tiles[0].h
+    var min_area = Infinity, max_area = 0
+    Tiles.forEach(function( tile ) {
+      if (min_area > tile.area) min_area = tile.area
+      if (max_area < tile.area) max_area = tile.area
+    })
+    // ensure hard constraint on size-ratio
+    const size_ratio = Math.sqrt(min_area / max_area)
+    if (size_ratio < Params.min_ratio) return Infinity
+
+    var size_error = 0, tile_index = 0
     for (let i = 0; i < Row_Counts.length -1; i++) {
       tile_index += Row_Counts[i]
       const prev_size = Tiles[tile_index -1].h,
             curr_size = Tiles[tile_index   ].h
       const size_diff = curr_size / prev_size -1
-      size_error += Math.max(0, size_diff)
-
-      if      (max_size < curr_size) max_size = curr_size
-      else if (min_size > curr_size) min_size = curr_size
+      size_error += Math.max(0, size_diff)**2
     }
-
-    // ensure hard constraint on size-ratio
-    const size_ratio = min_size / max_size
-    if (size_ratio < Params.min_ratio) return Infinity
 
     const aspect_error = Math.abs(frame_ratio / layout_ratio - 1)
 
-    const cost = aspect_error + size_error *0.1
+    const cost = aspect_error + size_error
     return cost
   }
 
