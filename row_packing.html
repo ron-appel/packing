@@ -18,7 +18,10 @@ const Params = {
 
 function keypress( event ) {
   event.stopPropagation()
-  if (event.key == 'Enter') refresh()
+  if (event.key == 'Enter') {
+    if (event.target.tagName == 'INPUT') event.target.onchange()
+    refresh()
+  }
   return false
 }
 
@@ -73,15 +76,34 @@ function update_layout() {
 console.log('frame', frame_ratio, 'layout', layout_ratio, 'error', aspect_error)
 }
 
+function settings() {
+  if (!settings.is_initialized) {
+    const Inputs = document.getElementsByTagName('input')
+    for (let i = 0; i < Inputs.length; i++) {
+      const input = Inputs[i]
+      const param = input.name
+      if (input.type == 'radio') {
+        input.checked = Params[param] == input.value
+        input.onchange = function() { if (input.checked) Params[param] = input.value }
+      }
+      else {
+        if (input.type != 'file') input.value = Params[param]
+        input.onchange = function() {
+          const value = input.value
+          if (RegExp(input.pattern).test(value)) Params[param] = value
+          else input.value = Params[param]
+          input.blur()
+        }
+      }
+    }
+
+    settings.is_initialized = true
+  }
+}
+
 var Tiles
 function refresh() {
-  const Inputs = document.getElementsByTagName('input')
-  for (let i = 0; i < Inputs.length; i++) {
-    const input = Inputs[i]
-    const param = input.name
-    if (input.type == 'radio') input.checked = Params[param] == input.value
-    else if (input.type != 'file') input.value = Params[param]
-  }
+  settings()
 
   // generate random aspects
   function get_param( param ) { return (new Function('return ' + Params[param]))() }
@@ -97,17 +119,6 @@ function refresh() {
 
   Tiles = generate_tiles(Aspect_Ratios)
   update_layout(Tiles)
-}
-
-function settings( event ) {
-  const Inputs = document.getElementsByTagName("input")
-  for (let i = 0; i < Inputs.length; i++) {
-    const input = Inputs[i]
-    const param = input.name, value = input.value
-    if (input.type == "radio") { if (input.checked) Params[param] = value }
-    else {   if (RegExp(input.pattern).test(value)) Params[param] = value }
-  }
-  event.target.blur()
 }
 
 </script>
@@ -154,7 +165,7 @@ div:not(#settings) > div {
 </style>
 </head>
 <body onload="refresh()" onresize="update_layout()" ondblclick="update_layout()" onkeypress="keypress(event)">
-<div id="settings" onchange="settings(event)">
+<div id="settings">
   Resize or double-click to update layout.
   <br>
   Press [Enter] to regenerate array.
@@ -163,7 +174,7 @@ div:not(#settings) > div {
   input: <input type="text" name="array" size="30">
   <br>
 -->
-  number of rectangles: <input type="text" name="N" size="4" pattern="^[1-9][0-9]{1,2}$" title="0 < Integer < 1000">
+  number of rectangles: <input type="text" name="N" size="4" pattern="^[1-9][0-9]{0,2}$" title="0 < Integer < 1000">
   <br>
   min-aspect: <input type="text" name="min_aspect" size="5" pattern="^[0-9/.]+$" title="Number or Fraction">
   max-aspect: <input type="text" name="max_aspect" size="5" pattern="^[0-9/.]+$" title="Number or Fraction">
