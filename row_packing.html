@@ -62,7 +62,8 @@ function update_layout() {
         frame_height = window.innerHeight
 
   document.title = 'Annealing...'
-  const layout_ratio = set_layout(Tiles, frame_width, frame_height)
+  const order_in_out = true
+  const layout_ratio = set_layout(Tiles, frame_width, frame_height, order_in_out)
 
   display(Tiles)
 

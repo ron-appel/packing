@@ -1,5 +1,5 @@
 
-// convert aspect ratio into fraction
+// convert number x into fraction n/m
 function number_to_fraction( x ) {
   let d1 = Infinity, m1 = 0, n1 = 0
   for (let m = 1; m <= 16; m++) {
@@ -15,14 +15,15 @@ function Tile( aspect_ratio ) {
   this.l = this.t = 0
   this.h = 1
   this.aspect_ratio = this.area = this.w = aspect_ratio
-  function update_area() { this.area = this.w * this.h; return this }
 
   this.move_to = function( x, y ) {
     this.l = x
     this.t = y
-    return update_area()
+    return this
   }
   this.move_by = function( x, y ) { return this.move_to(this.l + x, this.t + y) }
+
+  function update_area() { this.area = this.w * this.h; return this }
   this.set_width = function( w ) {
     this.w = w
     this.h = w /aspect_ratio
@@ -190,11 +191,37 @@ function anneal_layout( Tiles, frame_ratio ) {
   return Row_Counts_best
 }
 
-function set_layout( Tiles, frame_width, frame_height ) {
+function set_layout( Tiles, frame_width, frame_height, order_in_out ) {
   const frame_ratio = frame_width / frame_height
   const Row_Counts = anneal_layout(Tiles, frame_ratio)
 
   const layout_ratio = place_tiles(Tiles, Row_Counts)
+
+  // reorder tiles in-outward
+  if (order_in_out) {
+    const tile = Tiles[0]
+    var k = 0, is_top = false, t = tile.t, b = tile.t
+    Row_Counts.forEach(function( row_count ) {
+      const tile = Tiles[k], l0 = tile.l
+
+      var y
+      if (is_top = !is_top) y = (t -= tile.h)
+      else                { y = b; b += tile.h }
+
+      var is_left = true, l = l0, r = l0 + tile.w
+
+      tile.move_to(l0, y)
+      for (let i = 1; i < row_count; i++) {
+        const tile = Tiles[k +i]
+        if (is_left = !is_left) tile.move_to(l -= tile.w, y)
+        else                  { tile.move_to(r, y); r += tile.w }
+      }
+      
+      const x = l0 - l
+      for (let i = 0; i < row_count; i++) Tiles[k + i].move_by(x, 0)
+      k += row_count
+    })
+  }
 
   center_tiles(Tiles, frame_width, frame_height)
 
@@ -203,6 +230,7 @@ function set_layout( Tiles, frame_width, frame_height ) {
 
 function get_layout( Aspect_Ratios, frame_width, frame_height ) {
   const Tiles = generate_tiles(Aspect_Ratios)
-  set_layout(Tiles, frame_width, frame_height)
+  const order_in_out = true
+  set_layout(Tiles, frame_width, frame_height, order_in_out)
   return Tiles
 }
